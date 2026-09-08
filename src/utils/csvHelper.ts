@@ -25,16 +25,16 @@ export interface CsvValidationResult {
 
 export function parseProductCsv(file: File): Promise<CsvValidationResult> {
   return new Promise((resolve, reject) => {
-    Papa.parse<Record<string, string>>(file, {
+    Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: (results) => {
+      complete: (results: any) => {
         const validRows: Partial<Product>[] = [];
         const invalidRows: { rowNumber: number; raw: Record<string, unknown>; error: string }[] = [];
         const seenBarcodes = new Set<string>();
         const duplicateBarcodes: string[] = [];
 
-        results.data.forEach((row, index) => {
+        (results.data as Record<string, string>[]).forEach((row: Record<string, string>, index: number) => {
           const rowNumber = index + 2; // account for header line
           
           // Map flexible keys
@@ -94,7 +94,7 @@ export function parseProductCsv(file: File): Promise<CsvValidationResult> {
 
         resolve({ validRows, invalidRows, duplicateBarcodes });
       },
-      error: (error) => {
+      error: (error: any) => {
         reject(error);
       },
     });
