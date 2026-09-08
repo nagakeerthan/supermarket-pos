@@ -471,7 +471,11 @@ app.post('/api/orders', async (req, res) => {
       createdAt: req.body.createdAt || new Date().toISOString(),
       status: req.body.status || 'completed',
     };
-    await ordersCol.insertOne(order);
+    await ordersCol.updateOne(
+      { id: order.id },
+      { $set: order },
+      { upsert: true }
+    );
 
     // Deduct stock in MongoDB
     if (order.items && Array.isArray(order.items)) {
@@ -496,15 +500,6 @@ app.post('/api/orders', async (req, res) => {
         }
       );
     }
-
-    // Log Activity
-    await activitiesCol.insertOne({
-      id: `act-${Date.now()}`,
-      type: 'sale',
-      text: `Settled Bill #${order.invoiceNumber} (${order.paymentMethod.toUpperCase()})`,
-      amount: order.grandTotal,
-      timestamp: new Date().toISOString(),
-    });
 
     res.json({ success: true, order });
   } catch (error) {
@@ -630,14 +625,6 @@ app.post('/api/orders/:id/void', async (req, res) => {
     }
 
     await ordersCol.updateOne({ id: req.params.id }, { $set: { status: 'voided' } });
-
-    await activitiesCol.insertOne({
-      id: `act-${Date.now()}`,
-      type: 'refund',
-      text: `Voided Invoice #${order.invoiceNumber} by ${cashierName}: ${reason}`,
-      amount: order.grandTotal,
-      timestamp: new Date().toISOString(),
-    });
 
     res.json({ success: true });
   } catch (error) {
@@ -831,8 +818,16 @@ app.get('/api/activities', async (req, res) => {
 
 app.post('/api/activities', async (req, res) => {
   try {
-    const act = { ...req.body, id: req.body.id || `act-${Date.now()}`, timestamp: new Date().toISOString() };
-    await activitiesCol.insertOne(act);
+    const act = {
+      ...req.body,
+      id: req.body.id || `act-${Date.now()}`,
+      timestamp: req.body.timestamp || new Date().toISOString(),
+    };
+    await activitiesCol.updateOne(
+      { id: act.id },
+      { $set: act },
+      { upsert: true }
+    );
     res.json({ success: true, activity: act });
   } catch (error) {
     res.status(500).json({ error: error.message });
